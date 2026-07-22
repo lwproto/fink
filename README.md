@@ -1,11 +1,14 @@
 # Fink
 > Lightweight discrete protocol for resource-constrained IoT devices
 
+![Version](https://img.shields.io/badge/version-0.0.1-blue?style=for-the-badge)
+![Status](https://img.shields.io/badge/status-pre--alpha-a32d2a?style=for-the-badge)
+![License](https://img.shields.io/badge/license-Apache_2.0-D22128?style=for-the-badge)
+
 ## About
 **Fink** is a lightweight discrete protocol designed for resource-constrained IoT devices with limited bandwidth.
 
-## Architecture
-### Frame structure
+## Frame structure
 The Fink frames are called **fink-o-gramm** and have their own structure.
 
 #### Fields Description
@@ -30,8 +33,8 @@ The Together method computes the **CRC-8/ROHC** checksum of the following ASCII 
 
 where:
 
-* **PROTOCOL** — protocol identifier written in uppercase letters.
-* **version** — sequential protocol version number.
+* **PROTOCOL** - protocol identifier written in uppercase.
+* **version** - sequential protocol version number.
 
 The resulting CRC-8/ROHC value becomes the **Magic** field of every frame.
 
@@ -39,8 +42,8 @@ The resulting CRC-8/ROHC value becomes the **Magic** field of every frame.
 
 The Together method serves two purposes:
 
-1. **Explicit protocol filtering** — frames belonging to other protocols are immediately rejected because their Magic value differs.
-2. **Automatic version discrimination** — different protocol versions produce different Magic values, allowing incompatible versions to be distinguished without transmitting the version number separately.
+1. **Explicit protocol filtering** - frames belonging to other protocols are immediately rejected because their Magic value differs.
+2. **Automatic version discrimination** - different protocol versions produce different Magic values, allowing incompatible versions to be distinguished without transmitting the version number separately.
 
 This approach eliminates the need to transmit the protocol identifier and version separately, reducing frame overhead while preserving reliable identification.
 
@@ -77,3 +80,29 @@ The **Flags** field is a one-byte bitmask that contains frame attributes and con
 
 * Multiple flags may be set simultaneously unless explicitly prohibited by a protocol extension.
 * Reserved bits should always remain cleared to ensure forward compatibility with future protocol versions.
+
+## Reliability & Timing Model
+
+**Important:** The Fink protocol itself is stateless and does not implement reliability mechanisms (retransmission, timeouts, sequence numbers). It only provides the signaling flags (`REQUIRE_ACK`, `ACK`) and integrity checks.
+
+Reliability is an **application-layer responsibility**. However, to ensure interoperability, deterministic behavior, and to prevent network congestion or battery drain on resource-constrained devices, any implementation utilizing the ACK mechanism **MUST** adhere to the following guidelines:
+
+### Timing Constraints
+
+| Parameter | Value | Requirement | Rationale |
+| :--- | :--- | :--- | :--- |
+| **ACK Transmission Delay** | ≤ 250 ms | The receiver **MUST** transmit the `ACK` frame within 250 ms after successful `Magic` and `CRC` validation. | Prevents unnecessary retransmissions. The delay must not include application-level processing time; ACK confirms *receipt*, not *execution*. |
+| **Initial Retransmission Timeout** | 250 ms | The sender **SHOULD** use 250 ms as the initial timeout for waiting for an ACK. | Matches the receiver's maximum response time. |
+| **Maximum Retries** | 3 | The sender **MAY** retransmit a frame up to 3 times if no ACK is received. | Limits network flooding and battery consumption. After 3 failures, the application should treat the delivery as failed. |
+| **Backoff Strategy** | Exponential | On each retry, the timeout **SHOULD** be doubled (250 ms → 500 ms → 1 s). | Reduces collision probability in lossy channels. |
+| **ACK Frame Priority** | Mandatory | All `ACK` frames **MUST** be sent with the `URGENT` (bit 0) flag set. | Ensures low-latency delivery of acknowledgments, preventing the sender from triggering premature retransmissions. |
+
+### Design Rationale
+
+This split design preserves the minimal overhead of the Fink protocol (4 bytes) while ensuring consistent behavior across heterogeneous implementations (microcontrollers, gateways, cloud services).
+*   **For constrained devices:** The strict limits (3 retries, capped delays) protect against infinite loops and excessive radio duty cycle.
+*   **For high-performance systems:** The exponential backoff and priority flag optimize throughput without requiring complex congestion control algorithms.
+*   **Interoperability:** By fixing these values in the standard, different vendors' implementations will behave predictably when communicating over the same channel.
+
+## License
+The protocol is licensed under [**Apache-2.0**](LICENSE).
