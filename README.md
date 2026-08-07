@@ -1,6 +1,6 @@
 # Fink
 > Lightweight discrete protocol for resource-constrained IoT devices
-> 
+
 ![License](https://img.shields.io/badge/license-Apache_2.0-D22128?style=for-the-badge)
 
 ## About
