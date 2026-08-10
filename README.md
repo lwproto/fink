@@ -7,7 +7,7 @@
 **Fink** is a lightweight discrete protocol designed for resource-constrained IoT devices with limited bandwidth.
 
 ## Frame structure
-The Fink frames are called **fink-o-gramm** and have their own structure.
+The Fink frames are called **fink-o-gram** and have their own structure.
 
 #### Fields Description
 | Field      | Size        | Description                                                        |
