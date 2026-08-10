@@ -1,5 +1,5 @@
-import struct
 from typing import Optional, Tuple
+import struct
 import logging
 
 
@@ -15,13 +15,45 @@ def get_logger(name: str) -> logging.Logger:
 
 
 class Fink:
+    """
+    Fink protocol implementation - ultra-light discrete protocol for IoT.
+
+    Frame structure (fink-o-gram):
+        [Magic: 1B][Flags: 1B][Length: 1B][Payload: 0-255B][CRC: 1B]
+    """
+
+    FLAG_URGENT = 0x01
+    FLAG_REQUIRE_ACK = 0x02
+    FLAG_ACK = 0x04
+
     def __init__(self):
+        """
+        Initialize Fink protocol instance.
+
+        The magic byte is calculated using the "Together" method:
+        CRC-8/ROHC of the "PROTOCOL/version" ASCII string.
+        For FINK/1, magic = 0xDB.
+        """
+
         self.protocol = "FINK/1"
         self.magic = self._crc8_rohc(self.protocol.encode("ascii"))  # "Together" method
         self.logger = get_logger("Fink")
 
     @staticmethod
     def _crc8_rohc(input_data: bytes) -> int:
+        """
+        Compute CRC-8/ROHC checksum.
+
+        This is the reference implementation of the CRC-8/ROHC algorithm
+        used by the "Together" method to generate the magic byte.
+
+        Args:
+            input_data: Bytes to checksum.
+
+        Returns:
+            8-bit CRC value.
+        """
+
         poly = 0x07
         crc = 0xFF
 
@@ -43,11 +75,31 @@ class Fink:
         return reflect(crc)
 
     def pack(self, payload: bytes, flags: int = 0) -> Optional[bytes]:
+        """
+        Pack payload into a Fink frame (fink-o-gram).
+
+        Frame structure:
+            [Magic: 1B][Flags: 1B][Length: 1B][Payload: 0-255B][CRC: 1B]
+
+        Flags bitmask:
+            - Bit 0: URGENT
+            - Bit 1: REQUIRE_ACK
+            - Bit 2: ACK
+            - Bits 3-7: Reserved (must be 0)
+
+        Args:
+            payload: User data (max 255 bytes).
+            flags: Frame flags (default: 0).
+
+        Returns:
+            Packed frame as bytes, or None if payload exceeds 255 bytes.
+        """
+
         if len(payload) > 255:
             self.logger.error(f"Payload is too long: {len(payload)} > 255!")
             return None
-        else:
 
+        else:
             header = struct.pack(">BBB", self.magic, flags, len(payload))
             without_crc = header + payload
             crc = self._crc8_rohc(without_crc)
@@ -56,6 +108,22 @@ class Fink:
             return packet
 
     def unpack(self, packet: bytes) -> Optional[Tuple[bytes, int]]:
+        """
+        Unpack a Fink frame (fink-o-gram) into payload and flags.
+
+        Performs validation:
+            1. Minimum frame size (4 bytes).
+            2. Magic byte match.
+            3. Length field consistency.
+            4. CRC-8/ROHC checksum verification.
+
+        Args:
+            packet: Raw frame bytes.
+
+        Returns:
+            Tuple of (payload, flags) if valid, None otherwise.
+        """
+
         if len(packet) < 4:
             self.logger.debug("Packet too short.")
             return None
@@ -88,21 +156,21 @@ class Fink:
 
 if __name__ == "__main__":
     fink = Fink()
-    
+
     # TEST 1: normal
     print(" TEST 1: Normal ".center(50, "="))
     frame = fink.pack(b"Don't turn a matchstick into a multicooker!")
     if frame:
         payload, flags = fink.unpack(frame)
         print(f"OK: {payload.decode()}\n")
-    
+
     # TEST 2: payload = 255 bytes
     print(" TEST 2: Length of Payload = 255 ".center(50, "="))
     payload_255 = b"A" * 255
     frame = fink.pack(payload_255)
     if frame:
         print(f"OK: 255 bytes packed\n")
-    
+
     # TEST 3: payload = 256 bytes (will return None)
     print(" TEST 3: Overflow ".center(50, "="))
     payload_256 = b"B" * 256
