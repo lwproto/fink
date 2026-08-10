@@ -17,8 +17,7 @@ def get_logger(name: str) -> logging.Logger:
 class Fink:
     def __init__(self):
         self.protocol = "FINK/1"
-        # "Together" method
-        self.magic = self._crc8_rohc(self.protocol.encode("ascii"))
+        self.magic = self._crc8_rohc(self.protocol.encode("ascii"))  # "Together" method
         self.logger = get_logger("Fink")
 
     @staticmethod
@@ -43,13 +42,18 @@ class Fink:
                     crc = (crc << 1) & 0xFF
         return reflect(crc)
 
-    def pack(self, payload: bytes, flags: int = 0) -> bytes:
-        header = struct.pack(">BBB", self.magic, flags, len(payload))
-        without_crc = header + payload
-        crc = self._crc8_rohc(without_crc)
-        packet = without_crc + struct.pack(">B", crc)
-        self.logger.debug(f"Packed frame: {packet.hex().upper()}")
-        return packet
+    def pack(self, payload: bytes, flags: int = 0) -> Optional[bytes]:
+        if len(payload) > 255:
+            self.logger.error(f"Payload is too long: {len(payload)} > 255!")
+            return None
+        else:
+
+            header = struct.pack(">BBB", self.magic, flags, len(payload))
+            without_crc = header + payload
+            crc = self._crc8_rohc(without_crc)
+            packet = without_crc + struct.pack(">B", crc)
+            self.logger.debug(f"Packed frame: {packet.hex().upper()}")
+            return packet
 
     def unpack(self, packet: bytes) -> Optional[Tuple[bytes, int]]:
         if len(packet) < 4:
@@ -84,8 +88,24 @@ class Fink:
 
 if __name__ == "__main__":
     fink = Fink()
-    frame = fink.pack("Don't turn a matchstick into a multicooker!".encode("utf-8"))
-    print(f"{frame[:3].hex(' ').upper()} {frame[3:-1].hex().upper()} {frame[-1].to_bytes().hex()}")
-
-    payload, flags = fink.unpack(frame)
-    print(payload.decode("utf-8"))
+    
+    # TEST 1: normal
+    print(" TEST 1: Normal ".center(50, "="))
+    frame = fink.pack(b"Don't turn a matchstick into a multicooker!")
+    if frame:
+        payload, flags = fink.unpack(frame)
+        print(f"OK: {payload.decode()}\n")
+    
+    # TEST 2: payload = 255 bytes
+    print(" TEST 2: Length of Payload = 255 ".center(50, "="))
+    payload_255 = b"A" * 255
+    frame = fink.pack(payload_255)
+    if frame:
+        print(f"OK: 255 bytes packed\n")
+    
+    # TEST 3: payload = 256 bytes (will return None)
+    print(" TEST 3: Overflow ".center(50, "="))
+    payload_256 = b"B" * 256
+    frame = fink.pack(payload_256)
+    if frame is None:
+        print("OK: 256 bytes rejected")
