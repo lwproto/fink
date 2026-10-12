@@ -1,15 +1,19 @@
 # Fink
+>
 > Lightweight discrete protocol for resource-constrained IoT devices
 
-![License](https://img.shields.io/badge/license-Apache_2.0-D22128?style=for-the-badge)
+[![License](https://img.shields.io/badge/license-Apache_2.0-D22128?style=for-the-badge)](LICENSE)
 
 ## About
+
 **Fink** is a lightweight discrete protocol designed for resource-constrained IoT devices with limited bandwidth.
 
 ## Frame structure
+
 The Fink frames are called **fink-o-gram** and have their own structure.
 
 #### Fields Description
+
 | Field      | Size        | Description                                                        |
 |------------|-------------|--------------------------------------------------------------------|
 | `Magic`    | 1 byte      | Protocol identifier calculated by the Together method (see below). |
@@ -17,6 +21,7 @@ The Fink frames are called **fink-o-gram** and have their own structure.
 | `Length`   | 1 byte      | Length of the payload.                                             |
 | `Payload`  | 0~255 bytes | User data up to 255 bytes.                                         |
 | `Checksum` | 1 byte      | CRC-8/ROHC checksum of the frame.                                  |
+
 ---
 
 ### Magic & "Together" method
@@ -59,6 +64,7 @@ Therefore, every frame of **FINK v1** begins with the following Magic byte:
 ```text
 Magic = 0xDB
 ```
+
 ---
 
 ### Frame Flags
@@ -98,9 +104,11 @@ Reliability is an **application-layer responsibility**. However, to ensure inter
 ### Design Rationale
 
 This split design preserves the minimal overhead of the Fink protocol (4 bytes) while ensuring consistent behavior across heterogeneous implementations (microcontrollers, gateways, cloud services).
-*   **For constrained devices:** The strict limits (3 retries, capped delays) protect against infinite loops and excessive radio duty cycle.
-*   **For high-performance systems:** The exponential backoff and priority flag optimize throughput without requiring complex congestion control algorithms.
-*   **Interoperability:** By fixing these values in the standard, different vendors' implementations will behave predictably when communicating over the same channel.
+
+* **For constrained devices:** The strict limits (3 retries, capped delays) protect against infinite loops and excessive radio duty cycle.
+* **For high-performance systems:** The exponential backoff and priority flag optimize throughput without requiring complex congestion control algorithms.
+* **Interoperability:** By fixing these values in the standard, different vendors' implementations will behave predictably when communicating over the same channel.
 
 ## License
+
 The protocol is licensed under [**Apache-2.0**](LICENSE).
